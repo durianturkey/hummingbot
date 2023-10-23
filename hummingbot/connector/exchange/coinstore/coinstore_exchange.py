@@ -196,7 +196,7 @@ class CoinstoreExchange(ExchangePyBase):
             "clOrdId": order_id,
         }
         if order_type is OrderType.LIMIT:
-            price_str = f"{price:.2f}"
+            price_str = f"{price:.4f}"
             api_params["ordPrice"] = price_str
 
         try:
@@ -575,13 +575,13 @@ class CoinstoreExchange(ExchangePyBase):
             mapping[symbol_data["symbolCode"].upper()] = combine_to_hb_trading_pair(
                 base=symbol_data["tradeCurrencyCode"].upper(), quote=symbol_data["quoteCurrencyCode"]
             )
-            self._symbolId_map.forceput(symbol_data["symbolCode"].upper(), symbol_data["symbolId"])
+            self._symbolId_map[symbol_data["symbolCode"].upper()] = symbol_data["symbolId"]
         self._set_trading_pair_symbol_map(mapping)
 
     def _initialize_assets_info_from_assets_info(self, assets_info: Dict[str, Any]):
         for symbol_data in assets_info["data"]:
             info = assets_info["data"][symbol_data]
-            self._symbolId_map.forceput(symbol_data.upper(), info["unified_cryptoasset_id"])
+            self._symbolId_map[symbol_data.upper()] = info["unified_cryptoasset_id"]
 
     async def _initialize_trading_pair_symbol_map(self):
         try:
