@@ -4,7 +4,7 @@ import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 
-from bidict import bidict
+from bidict import ValueDuplicationError, bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.coinstore import (
@@ -575,13 +575,19 @@ class CoinstoreExchange(ExchangePyBase):
             mapping[symbol_data["symbolCode"].upper()] = combine_to_hb_trading_pair(
                 base=symbol_data["tradeCurrencyCode"].upper(), quote=symbol_data["quoteCurrencyCode"]
             )
-            self._symbolId_map[symbol_data["symbolCode"].upper()] = symbol_data["symbolId"]
+            try:
+                self._symbolId_map[symbol_data["symbolCode"].upper()] = symbol_data["symbolId"]
+            except ValueDuplicationError:
+                self.logger().debug("Duplicate symbolId for symbol: %s", symbol_data["symbolCode"].upper())
         self._set_trading_pair_symbol_map(mapping)
 
     def _initialize_assets_info_from_assets_info(self, assets_info: Dict[str, Any]):
         for symbol_data in assets_info["data"]:
             info = assets_info["data"][symbol_data]
-            self._symbolId_map[symbol_data.upper()] = info["unified_cryptoasset_id"]
+            try:
+                self._symbolId_map[symbol_data.upper()] = info["unified_cryptoasset_id"]
+            except ValueDuplicationError:
+                self.logger().debug("Duplicate symbolId for symbol: %s", symbol_data.upper())
 
     async def _initialize_trading_pair_symbol_map(self):
         try:
