@@ -572,10 +572,10 @@ class CoinstoreExchange(ExchangePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
         for symbol_data in exchange_info["data"]:
-            mapping[symbol_data["symbolCode"].upper()] = combine_to_hb_trading_pair(
-                base=symbol_data["tradeCurrencyCode"].upper(), quote=symbol_data["quoteCurrencyCode"]
-            )
             try:
+                mapping[symbol_data["symbolCode"].upper()] = combine_to_hb_trading_pair(
+                    base=symbol_data["tradeCurrencyCode"].upper(), quote=symbol_data["quoteCurrencyCode"]
+                )
                 self._symbolId_map[symbol_data["symbolCode"].upper()] = symbol_data["symbolId"]
             except ValueDuplicationError:
                 self.logger().debug("Duplicate symbolId for symbol: %s", symbol_data["symbolCode"].upper())
