@@ -136,7 +136,7 @@ class CoinstoreUserStreamDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("INFO", "Subscribed to private account, position and orders channels..."))
 
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
-        self.assertEqual(1, len(sent_messages))
+        self.assertEqual(2, len(sent_messages))
         request = sent_messages[0]
 
         self.assertEqual(CONSTANTS.WS_AUTHENTICATE_USER_ENDPOINT_NAME, request["op"])

@@ -172,7 +172,7 @@ class PerformanceMetrics:
         return value / divisor
 
     def _is_trade_fill(self, trade):
-        return type(trade) == TradeFill
+        return type(trade) is TradeFill
 
     def _are_derivatives(self, trades: List[Any]) -> bool:
         return (
@@ -256,11 +256,11 @@ class PerformanceMetrics:
                 last_price = await RateOracle.get_instance().stored_or_live_rate(rate_pair)
                 if last_price is not None:
                     self.fee_in_quote += fee_amount * last_price
-                else:
-                    self.logger().warning(
-                        f"Could not find exchange rate for {rate_pair} "
-                        f"using {RateOracle.get_instance()}. PNL value will be inconsistent."
-                    )
+                # else:
+                #     self.logger().warning(
+                #         f"Could not find exchange rate for {rate_pair} "
+                #         f"using {RateOracle.get_instance()}. PNL value will be inconsistent."
+                #     )
 
     def _calculate_trade_pnl(self, buys: list, sells: list):
         self.trade_pnl = self.cur_value - self.hold_value

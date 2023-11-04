@@ -1,4 +1,4 @@
-import threading
+import asyncio
 import time
 from typing import TYPE_CHECKING, List, Optional
 
@@ -51,12 +51,11 @@ class CoinstoreAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self.logger().info("Subscribed to private account, position and orders channels...")
 
     # send pong every 5 mins
-    def _send_pong(self, websocket_assistant: WSAssistant):
+    async def _send_pong(self, websocket_assistant: WSAssistant):
         while True:
-            time.sleep(300)
-            print("Sending pong")
             pong_response = WSJSONRequest(payload={"op": "pong", "epochMillis": time.time()})
-            websocket_assistant.send(pong_response)
+            await websocket_assistant.send(pong_response)
+            await asyncio.sleep(300)
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         pass
@@ -65,6 +64,9 @@ class CoinstoreAPIUserStreamDataSource(UserStreamTrackerDataSource):
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         await ws.connect(ws_url=CONSTANTS.WSS_URL, message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)
         await self._authenticate(ws)
-        _send_pong_thread = threading.Thread(target=self._send_pong, args=(ws,))
-        _send_pong_thread.start()
+        # send pong every 5 mins
+        loop = asyncio.get_event_loop()
+        loop.create_task(self._send_pong(ws))
+        if not loop.is_running():
+            loop.run_forever()
         return ws

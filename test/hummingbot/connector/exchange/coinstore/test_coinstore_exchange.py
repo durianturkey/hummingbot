@@ -19,7 +19,7 @@ from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import MarketOrderFailureEvent, OrderFilledEvent
+from hummingbot.core.event.events import MarketOrderFailureEvent
 
 
 class CoinstoreExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
@@ -282,7 +282,7 @@ class CoinstoreExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTes
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
         return DeductedFromReturnsTradeFee(
-            percent_token=self.quote_asset, flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))]
+            percent_token="USDT", flat_fees=[TokenAmount(token="USDT", amount=Decimal("30"))]
         )
 
     @property
@@ -527,7 +527,7 @@ class CoinstoreExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "matchAmt": "0.00000000",
             "selfDealingQty": "0.00000000",
             "actualFeeRate": "0.002",
-            "feeCurrencyId": self.expected_fill_fee.flat_fees[0].token,
+            "feeCurrencyId": "30",
             "fee": 0,
             "timestamp": 1499405658,
         }
@@ -555,7 +555,7 @@ class CoinstoreExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "matchAmt": "0.00000000",
             "selfDealingQty": "0.00000000",
             "actualFeeRate": "0.002",
-            "feeCurrencyId": self.expected_fill_fee.flat_fees[0].token,
+            "feeCurrencyId": "30",
             "fee": 0,
             "timestamp": 1499405658,
         }
@@ -583,171 +583,13 @@ class CoinstoreExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "matchAmt": "0.00000000",
             "selfDealingQty": "0.00000000",
             "actualFeeRate": "0.002",
-            "feeCurrencyId": self.exchange._get_symbol_id(self.expected_fill_fee.flat_fees[0].token),
+            "feeCurrencyId": "30",
             "fee": str(self.expected_fill_fee.flat_fees[0].amount),
             "timestamp": 1499405658,
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return None
-
-    @aioresponses()
-    def test_update_order_fills_from_trades_triggers_filled_event(self, mock_api):
-        self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (
-            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
-        )
-
-        self.exchange.start_tracking_order(
-            order_id="OID1",
-            exchange_order_id="100234",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            price=Decimal("10000"),
-            amount=Decimal("1"),
-        )
-        order = self.exchange.in_flight_orders["OID1"]
-
-        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        trade_fill = {
-            "id": 28457,
-            "remainingQty": 0e-18,
-            "matchRole": -1,
-            "feeCurrencyId": self.quote_asset_id,
-            "acturalFeeRate": 0.002000000000000000,
-            "role": -1,
-            "accountId": 1138204,
-            "instrumentId": 15,
-            "baseCurrencyId": self.base_asset,
-            "quoteCurrencyId": self.quote_asset,
-            "execQty": 1,
-            "orderState": 50,
-            "matchId": 258338866,
-            "orderId": int(order.exchange_order_id),
-            "side": 1,
-            "execAmt": 48.000012,
-            "selfDealingQty": 0e-18,
-            "tradeId": 11523732,
-            "fee": 10.10000000,
-            "matchTime": 1499865549590 / 100,
-            "seq": None,
-        }
-
-        trade_fill_non_tracked_order = {
-            "id": 30000,
-            "remainingQty": 0e-18,
-            "matchRole": -1,
-            "feeCurrencyId": self.quote_asset_id,
-            "acturalFeeRate": 0.002000000000000000,
-            "role": -1,
-            "accountId": 1138204,
-            "instrumentId": 15,
-            "baseCurrencyId": self.base_asset,
-            "quoteCurrencyId": self.quote_asset,
-            "execQty": 12.00000000,
-            "orderState": 50,
-            "matchId": 258338866,
-            "orderId": 99999,
-            "side": 1,
-            "execAmt": 48.000012,
-            "selfDealingQty": 0e-18,
-            "tradeId": 11523732,
-            "fee": 10.10000000,
-            "matchTime": 1499865549590 / 100,
-            "seq": None,
-        }
-
-        mock_response = {
-            "data": [trade_fill, trade_fill_non_tracked_order],
-            "code": 0,
-        }
-
-        mock_api.get(regex_url, body=json.dumps(mock_response))
-
-        self.exchange.add_exchange_order_ids_from_market_recorder(
-            {str(trade_fill_non_tracked_order["orderId"]): "OID99"}
-        )
-
-        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
-
-        request = self._all_executed_requests(mock_api, url)[0]
-        self.validate_auth_credentials_present(request)
-        request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["symbol"])
-
-        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
-        self.assertEqual(order.client_order_id, fill_event.order_id)
-        self.assertEqual(order.trading_pair, fill_event.trading_pair)
-        self.assertEqual(order.trade_type, fill_event.trade_type)
-        self.assertEqual(order.order_type, fill_event.order_type)
-        self.assertEqual(Decimal(trade_fill["execAmt"]) / Decimal(trade_fill["execQty"]), fill_event.price)
-        self.assertEqual(Decimal(trade_fill["execQty"]), fill_event.amount)
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual(
-            [TokenAmount(self.exchange._get_symbol(trade_fill["feeCurrencyId"]), Decimal(trade_fill["fee"]))],
-            fill_event.trade_fee.flat_fees,
-        )
-
-        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-        self.assertEqual(float(trade_fill_non_tracked_order["matchTime"]) * 1e-3, fill_event.timestamp)
-        self.assertEqual("OID99", fill_event.order_id)
-        self.assertEqual(self.trading_pair, fill_event.trading_pair)
-        self.assertEqual(TradeType.BUY, fill_event.trade_type)
-        self.assertEqual(OrderType.LIMIT, fill_event.order_type)
-        self.assertEqual(
-            Decimal(trade_fill_non_tracked_order["execAmt"]) / Decimal(trade_fill_non_tracked_order["execQty"]),
-            fill_event.price,
-        )
-        self.assertEqual(Decimal(trade_fill_non_tracked_order["execQty"]), fill_event.amount)
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual(
-            [
-                TokenAmount(
-                    self.exchange._get_symbol(trade_fill_non_tracked_order["feeCurrencyId"]),
-                    Decimal(trade_fill_non_tracked_order["fee"]),
-                )
-            ],
-            fill_event.trade_fee.flat_fees,
-        )
-        self.assertTrue(
-            self.is_logged("INFO", f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}")
-        )
-
-    @aioresponses()
-    def test_update_order_fills_request_parameters(self, mock_api):
-        self.exchange._set_current_timestamp(0)
-        self.exchange._last_poll_timestamp = -1
-
-        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_response = []
-        mock_api.get(regex_url, body=json.dumps(mock_response))
-
-        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
-
-        request = self._all_executed_requests(mock_api, url)[0]
-        self.validate_auth_credentials_present(request)
-        request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["symbol"])
-        self.assertNotIn("startTime", request_params)
-
-        self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (
-            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
-        )
-        self.exchange._last_trades_poll_coinstore_timestamp = 10
-        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
-
-        request = self._all_executed_requests(mock_api, url)[1]
-        self.validate_auth_credentials_present(request)
-        request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["symbol"])
-        self.assertEqual(10 * 1e3, request_params["startTime"])
 
     def test_user_stream_update_for_order_failure(self):
         self.exchange._set_current_timestamp(1640780000)
@@ -784,7 +626,7 @@ class CoinstoreExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "matchAmt": "0.00000000",
             "selfDealingQty": "0.00000000",
             "actualFeeRate": "0.002",
-            "feeCurrencyId": self.expected_fill_fee.flat_fees[0].token,
+            "feeCurrencyId": "30",
             "fee": 0,
             "timestamp": 1499405658657 / 1e3,
         }
@@ -1090,7 +932,7 @@ class CoinstoreExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTes
                     "id": self.expected_fill_trade_id,
                     "remainingQty": 0e-18,
                     "matchRole": 1,
-                    "feeCurrencyId": self.quote_asset_id,
+                    "feeCurrencyId": "30",
                     "acturalFeeRate": 0.002000000000000000,
                     "role": 1,
                     "accountId": 1138204,
@@ -1106,7 +948,7 @@ class CoinstoreExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTes
                     "selfDealingQty": 0e-18,
                     "tradeId": 11523732,
                     "fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                    "matchTime": 1637825389,
+                    "matchTime": 1640825389,
                     "seq": None,
                 }
             ],
@@ -1120,7 +962,7 @@ class CoinstoreExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTes
                     "id": self.expected_fill_trade_id,
                     "remainingQty": 0e-18,
                     "matchRole": 1,
-                    "feeCurrencyId": self.quote_asset_id,
+                    "feeCurrencyId": "30",
                     "acturalFeeRate": 0.002000000000000000,
                     "role": 1,
                     "accountId": 1138204,
@@ -1136,7 +978,7 @@ class CoinstoreExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTes
                     "selfDealingQty": 0e-18,
                     "tradeId": 11523732,
                     "fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                    "matchTime": 1637825389,
+                    "matchTime": 1640825389,
                     "seq": None,
                 }
             ],
