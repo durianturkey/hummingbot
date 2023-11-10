@@ -433,7 +433,7 @@ pure_market_making_config_map = {
                   type_str="str",
                   required_if=lambda: pure_market_making_config_map.get(
                       "split_order_levels_enabled").value,
-                  validator=validate_decimal_list),
+                  validator=lambda v: validate_decimal(v, min_value=0)),
     "ask_order_level_amounts":
         ConfigVar(key="ask_order_level_amounts",
                   prompt="Enter the amount for all ask amounts. "
@@ -444,5 +444,5 @@ pure_market_making_config_map = {
                   required_if=lambda: pure_market_making_config_map.get(
                       "split_order_levels_enabled").value,
                   type_str="str",
-                  validator=validate_decimal_list),
+                  validator=lambda v: validate_decimal(v, min_value=0)),
 }
