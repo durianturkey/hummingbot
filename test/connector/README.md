@@ -22,6 +22,5 @@ Markets that currently can run unit mock testing:
 
 - Binance
 - Coinbase Pro
-- Huobi
-- Bittrex
+- Htx
 - KuCoin

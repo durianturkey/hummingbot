@@ -54,15 +54,9 @@ coinbase_pro_secret_key = os.getenv("COINBASE_PRO_SECRET_KEY")
 coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
 
 
-# Huobi Tests
-huobi_api_key = os.getenv("HUOBI_API_KEY")
-huobi_secret_key = os.getenv("HUOBI_SECRET_KEY")
-
-# Loopring Tests
-loopring_accountid = os.getenv("LOOPRING_ACCOUNTID")
-loopring_exchangeid = os.getenv("LOOPRING_EXCHANGEID")
-loopring_api_key = os.getenv("LOOPRING_API_KEY")
-loopring_private_key = os.getenv("LOOPRING_PRIVATE_KEY")
+# Htx Tests
+htx_api_key = os.getenv("HTX_API_KEY")
+htx_secret_key = os.getenv("HTX_SECRET_KEY")
 
 # Bittrex Tests
 bittrex_api_key = os.getenv("BITTREX_API_KEY")
@@ -100,10 +94,6 @@ hitbtc_secret_key = os.getenv("HITBTC_SECRET_KEY")
 # Gate.io Tests
 gate_io_api_key = os.getenv("GATE_IO_API_KEY")
 gate_io_secret_key = os.getenv("GATE_IO_SECRET_KEY")
-
-# AltMarkets.io Test
-altmarkets_api_key = os.getenv("ALTMARKETS_API_KEY")
-altmarkets_secret_key = os.getenv("ALTMARKETS_SECRET_KEY")
 
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")

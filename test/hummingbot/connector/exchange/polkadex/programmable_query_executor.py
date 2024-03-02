@@ -1,5 +1,6 @@
 import asyncio
 from typing import Any, Callable, Dict
+from unittest.mock import MagicMock
 
 from hummingbot.connector.exchange.polkadex.polkadex_query_executor import BaseQueryExecutor
 
@@ -16,6 +17,8 @@ class ProgrammableQueryExecutor(BaseQueryExecutor):
         self._cancel_order_responses = asyncio.Queue()
         self._order_history_responses = asyncio.Queue()
         self._order_responses = asyncio.Queue()
+        self._list_orders_responses = asyncio.Queue()
+        self._order_fills_responses = asyncio.Queue()
 
         self._order_book_update_events = asyncio.Queue()
         self._public_trades_update_events = asyncio.Queue()
@@ -52,6 +55,7 @@ class ProgrammableQueryExecutor(BaseQueryExecutor):
         self,
         order_id: str,
         market_symbol: str,
+        main_address: str,
         proxy_address: str,
         signature: Dict[str, Any],
     ) -> Dict[str, Any]:
@@ -68,6 +72,16 @@ class ProgrammableQueryExecutor(BaseQueryExecutor):
         response = await self._order_responses.get()
         return response
 
+    async def list_open_orders_by_main_account(self, main_account: str) -> Dict[str, Any]:
+        response = await self._list_orders_responses.get()
+        return response
+
+    async def get_order_fills_by_main_account(
+        self, from_timestamp: float, to_timestamp: float, main_account: str
+    ) -> Dict[str, Any]:
+        response = await self._order_fills_responses.get()
+        return response
+
     async def listen_to_orderbook_updates(self, events_handler: Callable, market_symbol: str):
         while True:
             event = await self._order_book_update_events.get()
@@ -82,3 +96,6 @@ class ProgrammableQueryExecutor(BaseQueryExecutor):
         while True:
             event = await self._private_events.get()
             events_handler(event=event)
+
+    async def create_ws_session(self):
+        return MagicMock()

@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os.path
 import threading
@@ -34,19 +35,25 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.logger import HummingbotLogger
+from hummingbot.model.executors import Executors
 from hummingbot.model.funding_payment import FundingPayment
 from hummingbot.model.market_data import MarketData
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
+from hummingbot.model.position_executors import PositionExecutors
 from hummingbot.model.range_position_collected_fees import RangePositionCollectedFees
 from hummingbot.model.range_position_update import RangePositionUpdate
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
+from hummingbot.smart_components.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
+from hummingbot.smart_components.executors.dca_executor.dca_executor import DCAExecutor
+from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 
 
 class MarketsRecorder:
     _logger = None
+    _shared_instance: "MarketsRecorder" = None
     market_event_tag_map: Dict[int, MarketEvent] = {
         event_obj.value: event_obj
         for event_obj in MarketEvent.__members__.values()
@@ -57,6 +64,12 @@ class MarketsRecorder:
         if cls._logger is None:
             cls._logger = logging.getLogger(__name__)
         return cls._logger
+
+    @classmethod
+    def get_instance(cls, *args, **kwargs) -> "MarketsRecorder":
+        if cls._shared_instance is None:
+            cls._shared_instance = MarketsRecorder(*args, **kwargs)
+        return cls._shared_instance
 
     def __init__(self,
                  sql: SQLConnectionManager,
@@ -112,6 +125,7 @@ class MarketsRecorder:
             (MarketEvent.RangePositionFeeCollected, self._update_range_position_forwarder),
             (MarketEvent.RangePositionClosed, self._close_range_position_forwarder),
         ]
+        MarketsRecorder._shared_instance = self
 
     def _start_market_data_recording(self):
         self._market_data_collection_task = self._ev_loop.create_task(self._record_market_data())
@@ -178,6 +192,35 @@ class MarketsRecorder:
                 market.remove_listener(event_pair[0], event_pair[1])
         if self._market_data_collection_task is not None:
             self._market_data_collection_task.cancel()
+
+    def store_position_executor(self, executor: Dict):
+        with self._sql_manager.get_new_session() as session:
+            with session.begin():
+                session.add(PositionExecutors(**executor))
+
+    def store_executor(self, executor: Union[PositionExecutor, ArbitrageExecutor, DCAExecutor]):
+        # Here can be implemented the routing of the executor to the right table, for now we use a general table
+        with self._sql_manager.get_new_session() as session:
+            with session.begin():
+                serialized_config = executor.executor_info.json()
+                session.add(Executors(**json.loads(serialized_config)))
+
+    def get_executors_by_ids(self, executor_ids: List[str]):
+        with self._sql_manager.get_new_session() as session:
+            executors = session.query(Executors).filter(Executors.id.in_(executor_ids)).all()
+            return executors
+
+    def get_position_executors(self,
+                               controller_name: str = None,
+                               exchange: str = None,
+                               trading_pair: str = None
+                               ):
+        with self._sql_manager.get_new_session() as session:
+            position_executors = PositionExecutors.get_position_executors(sql_session=session,
+                                                                          controller_name=controller_name,
+                                                                          exchange=exchange,
+                                                                          trading_pair=trading_pair)
+            return position_executors
 
     def get_orders_for_config_and_market(self, config_file_path: str, market: ConnectorBase,
                                          with_exchange_order_id_present: Optional[bool] = False,

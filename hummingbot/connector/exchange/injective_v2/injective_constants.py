@@ -1,6 +1,8 @@
 import sys
 
-from hummingbot.core.api_throttler.data_types import RateLimit
+import pyinjective.constant
+
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "injective_v2"
@@ -8,21 +10,23 @@ EXCHANGE_NAME = "injective_v2"
 DEFAULT_DOMAIN = ""
 TESTNET_DOMAIN = "testnet"
 
+MAX_ORDER_ID_LEN = 36  # Injective supports uuid style client ids (36 characters)
+HBOT_ORDER_ID_PREFIX = "HBOT"
+
 DEFAULT_SUBACCOUNT_INDEX = 0
-EXTRA_TRANSACTION_GAS = 20000
-DEFAULT_GAS_PRICE = 500000000
+EXTRA_TRANSACTION_GAS = pyinjective.constant.GAS_FEE_BUFFER_AMOUNT
+DEFAULT_GAS_PRICE = pyinjective.constant.GAS_PRICE
 
 EXPECTED_BLOCK_TIME = 1.5
 TRANSACTIONS_CHECK_INTERVAL = 3 * EXPECTED_BLOCK_TIME
+TRANSACTION_SUCCEEDED_CODE = 0
 
 # Public limit ids
 SPOT_MARKETS_LIMIT_ID = "SpotMarkets"
 DERIVATIVE_MARKETS_LIMIT_ID = "DerivativeMarkets"
-DERIVATIVE_MARKET_LIMIT_ID = "DerivativeMarket"
 SPOT_ORDERBOOK_LIMIT_ID = "SpotOrderBookSnapshot"
 DERIVATIVE_ORDERBOOK_LIMIT_ID = "DerivativeOrderBookSnapshot"
 GET_TRANSACTION_LIMIT_ID = "GetTransaction"
-GET_CHAIN_TRANSACTION_LIMIT_ID = "GetChainTransaction"
 FUNDING_RATES_LIMIT_ID = "FundingRates"
 ORACLE_PRICES_LIMIT_ID = "OraclePrices"
 FUNDING_PAYMENTS_LIMIT_ID = "FundingPayments"
@@ -37,29 +41,106 @@ DERIVATIVE_TRADES_LIMIT_ID = "DerivativeTrades"
 SIMULATE_TRANSACTION_LIMIT_ID = "SimulateTransaction"
 SEND_TRANSACTION = "SendTransaction"
 
+CHAIN_ENDPOINTS_GROUP_LIMIT_ID = "ChainGroupLimit"
+INDEXER_ENDPOINTS_GROUP_LIMIT_ID = "IndexerGroupLimit"
+
 NO_LIMIT = sys.maxsize
 ONE_SECOND = 1
 
-RATE_LIMITS = [
-    RateLimit(limit_id=SPOT_MARKETS_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=DERIVATIVE_MARKETS_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=DERIVATIVE_MARKET_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=SPOT_ORDERBOOK_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=DERIVATIVE_ORDERBOOK_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=GET_TRANSACTION_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=GET_CHAIN_TRANSACTION_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=PORTFOLIO_BALANCES_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=POSITIONS_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=SPOT_ORDERS_HISTORY_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=DERIVATIVE_ORDERS_HISTORY_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=SPOT_TRADES_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=DERIVATIVE_TRADES_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=SIMULATE_TRANSACTION_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=SEND_TRANSACTION, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=FUNDING_RATES_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=ORACLE_PRICES_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
-    RateLimit(limit_id=FUNDING_PAYMENTS_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
+ENDPOINTS_RATE_LIMITS = [
+    RateLimit(
+        limit_id=SIMULATE_TRANSACTION_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=SEND_TRANSACTION,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=GET_TRANSACTION_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=SPOT_MARKETS_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=DERIVATIVE_MARKETS_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=SPOT_ORDERBOOK_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=DERIVATIVE_ORDERBOOK_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=PORTFOLIO_BALANCES_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=POSITIONS_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=SPOT_ORDERS_HISTORY_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=DERIVATIVE_ORDERS_HISTORY_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=SPOT_TRADES_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=DERIVATIVE_TRADES_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=FUNDING_RATES_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=ORACLE_PRICES_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
+        limit_id=FUNDING_PAYMENTS_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
 ]
+
+PUBLIC_NODE_RATE_LIMITS = [
+    RateLimit(limit_id=CHAIN_ENDPOINTS_GROUP_LIMIT_ID, limit=20, time_interval=ONE_SECOND),
+    RateLimit(limit_id=INDEXER_ENDPOINTS_GROUP_LIMIT_ID, limit=50, time_interval=ONE_SECOND),
+]
+PUBLIC_NODE_RATE_LIMITS.extend(ENDPOINTS_RATE_LIMITS)
+
+CUSTOM_NODE_RATE_LIMITS = [
+    RateLimit(limit_id=CHAIN_ENDPOINTS_GROUP_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
+    RateLimit(limit_id=INDEXER_ENDPOINTS_GROUP_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
+]
+CUSTOM_NODE_RATE_LIMITS.extend(ENDPOINTS_RATE_LIMITS)
 
 ORDER_STATE_MAP = {
     "booked": OrderState.OPEN,
@@ -68,11 +149,14 @@ ORDER_STATE_MAP = {
     "canceled": OrderState.CANCELED,
 }
 
+STREAM_ORDER_STATE_MAP = {
+    "Booked": OrderState.OPEN,
+    "Matched": OrderState.FILLED,
+    "Cancelled": OrderState.CANCELED,
+}
+
 ORDER_NOT_FOUND_ERROR_MESSAGE = "order not found"
 ACCOUNT_SEQUENCE_MISMATCH_ERROR = "account sequence mismatch"
 
-BATCH_UPDATE_ORDERS_MESSAGE_TYPE = "/injective.exchange.v1beta1.MsgBatchUpdateOrders"
-MARKET_ORDER_MESSAGE_TYPES = [
-    "/injective.exchange.v1beta1.MsgCreateSpotMarketOrder",
-    "/injective.exchange.v1beta1.MsgCreateDerivativeMarketOrder",
-]
+NEW_SPOT_ORDERS_EVENT_NAME = "injective.exchange.v1beta1.EventNewSpotOrders"
+NEW_DERIVATIVE_ORDERS_EVENT_NAME = "injective.exchange.v1beta1.EventNewDerivativeOrders"

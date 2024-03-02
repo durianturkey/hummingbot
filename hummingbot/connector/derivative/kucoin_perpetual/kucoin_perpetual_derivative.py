@@ -419,7 +419,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         self._account_balances.clear()
 
         if wallet_balance["data"] is not None:
-            if type(wallet_balance["data"]) == list:
+            if isinstance(wallet_balance["data"], list):
                 for balance_data in wallet_balance["data"]:
                     currency = str(balance_data["currency"])
                     self._account_balances[currency] = Decimal(str(balance_data["marginBalance"]))
@@ -456,7 +456,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             data = position
             ex_trading_pair = data.get("symbol")
             hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
-            amount = self.get_value_of_contracts(hb_trading_pair, int(str(data["currentQty"])))
+            amount = self.get_value_of_contracts(hb_trading_pair, int(data["currentQty"]))
             position_side = PositionSide.SHORT if amount < 0 else PositionSide.LONG
             unrealized_pnl = Decimal(str(data["unrealisedPnl"]))
             entry_price = Decimal(str(data["avgEntryPrice"]))
@@ -591,7 +591,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
                         self._order_tracker.process_order_update(order_update=order_update)
 
                 elif endpoint == CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME:
-                    if type(payload) == list:
+                    if isinstance(payload, list):
                         for wallet_msg in payload:
                             self._process_wallet_event_message(wallet_msg)
                     else:
@@ -615,7 +615,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         if "changeReason" in position_msg and position_msg["changeReason"] != "markPriceChange":
             ex_trading_pair = position_msg["symbol"]
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
-            amount = Decimal(str(position_msg["currentQty"]))
+            amount = self.get_value_of_contracts(trading_pair, int(position_msg["currentQty"]))
             position_side = PositionSide.SHORT if amount < 0 else PositionSide.LONG
             entry_price = Decimal(str(position_msg["avgEntryPrice"]))
             leverage = Decimal(str(position_msg["realLeverage"]))
@@ -830,8 +830,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             path_url=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT.format(symbol=exchange_symbol),
             limit_id=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
         )
-
-        if type(resp_json["data"]) == list:
+        if isinstance(resp_json["data"], list):
             if "lastTradePrice" in resp_json["data"][0]:
                 price = float(resp_json["data"][0]["lastTradePrice"])
             else:
@@ -858,28 +857,20 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-
-        data = {
-            "symbol": exchange_symbol,
-            "level": leverage
-        }
-
-        resp: Dict[str, Any] = await self._api_post(
-            path_url=CONSTANTS.SET_LEVERAGE_PATH_URL,
-            data=data,
+        resp: Dict[str, Any] = await self._api_get(
+            path_url=CONSTANTS.GET_RISK_LIMIT_LEVEL_PATH_URL.format(symbol=exchange_symbol),
             is_auth_required=True,
             trading_pair=trading_pair,
+            limit_id=CONSTANTS.GET_RISK_LIMIT_LEVEL_PATH_URL,
         )
-
-        success = False
-        msg = ""
-        if resp["code"] == CONSTANTS.RET_CODE_OK:
-            success = True
-        else:
+        if resp["code"] != CONSTANTS.RET_CODE_OK:
             formatted_ret_code = self._format_ret_code_for_print(resp['code'])
-            msg = f"{formatted_ret_code} - Some problem"
-
-        return success, msg
+            return False, f"{formatted_ret_code} - Some problem"
+        max_leverage = resp['data'][0]['maxLeverage']
+        if leverage > max_leverage:
+            self.logger().error(f"Max leverage for {trading_pair} is {max_leverage}.")
+            return False, f"Max leverage for {trading_pair} is {max_leverage}."
+        return True, ""
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
