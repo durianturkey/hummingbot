@@ -54,7 +54,8 @@ connector_status = {
     'pangolin': 'bronze',
     'perp': 'bronze',
     'plenty': 'bronze',
-    'coinstore': 'bronze'
+    'coinstore': 'bronze',
+    'coinsbit': 'bronze',
     'ref': 'bronze',
     'sushiswap': 'bronze',
     'tinyman': 'bronze',

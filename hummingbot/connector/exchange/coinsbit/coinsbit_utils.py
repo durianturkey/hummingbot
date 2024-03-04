@@ -27,7 +27,7 @@ class CoinsbitConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
-    coinsbits_api_secret: SecretStr = Field(
+    coinsbit_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Coinsbit API secret",

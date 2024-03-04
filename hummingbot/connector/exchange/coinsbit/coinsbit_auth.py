@@ -3,7 +3,7 @@ import hmac
 import json
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
 
 class CoinsbitAuth(AuthBase):
@@ -36,3 +36,10 @@ class CoinsbitAuth(AuthBase):
             "X-TXC-SIGNATURE": signature
         })
         return params
+
+    async def ws_authenticate(self, request: WSRequest) -> WSRequest:
+        """
+        This method is intended to configure a websocket request to be authenticated. Binance does not use this
+        functionality
+        """
+        return request  # pass-through 
